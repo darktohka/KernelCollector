@@ -64,6 +64,12 @@ python3 -m pip install -r requirements.py
 sudo sh run.sh
 ```
 
+You'll need to install `reprepro` and `expect` next, as they're required for the package management aspect of KernelCollector.
+
+```
+sudo apt install reprepro expect
+```
+
 Next, edit the `settings.json` file to your liking:
 
 * `architectures`: Defaults to `"amd64", "i386"`. These are the architectures that your package list will track. Possible values: `"amd64", "i386", "armhf", "arm64", "ppc64el", "390x"`
