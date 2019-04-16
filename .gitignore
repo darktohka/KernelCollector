@@ -1,0 +1,6 @@
+__pycache__
+logs
+
+*.py[c|o]
+cache.json
+settings.json
