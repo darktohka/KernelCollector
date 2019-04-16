@@ -17,7 +17,9 @@ Older kernel versions will disappear once the newest kernel is installed. If ker
 
 This kind of setup might not be useful (or too risky) for some people, in that case, you are welcome to handle your own kernel installations.
 
+
 ## Getting started: User Guide
+
 
 Users will simply have to install the official `https://deb.tohka.us` Debian package repository, by dropping the package list into `/etc/apt/sources.list.d` (or straight into `/etc/apt/sources.list`, if you'd like), and then importing the GPG key that the Linux kernel packages are signed with.
 
@@ -30,7 +32,9 @@ sudo apt update
 After installing the repository, decide which release channel you want to follow.
 
 `linux-current` will follow the stable release of the Linux kernel.
+
 `linux-beta` will follow the release candidates of the Linux kernel.
+
 `linux-devel` will follow the daily trunk build of the Linux kernel. Usage of the linux-devel packages is usually not a good idea, as these packages are 100% untested and incredibly bleeding-edge.
 
 You'll also have to find out what your architecture is, for example: `amd64`
@@ -44,7 +48,9 @@ sudo apt install linux-current-headers-all linux-current-headers-generic-amd64 l
 
 That's it, restart, and you're done! You might want to consider removing your previous kernel packages. Combine `dpkg --list | grep linux-` and `apt purge` to achieve this.
 
+
 ## Getting Started: Developer Guide
+
 
 What if you want to run your own Linux kernel package list?
 
