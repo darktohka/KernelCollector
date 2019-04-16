@@ -1,0 +1,22 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name deb.example.org;
+
+    server_tokens off;
+
+    location / {
+        root /var/www/debian;
+        index index.html;
+        autoindex on;
+    }
+
+    location ~ /conf {
+        deny all;
+    }
+
+    location ~ /db {
+        deny all;
+    }
+}
+
