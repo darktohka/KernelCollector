@@ -14,22 +14,22 @@ class PackageDistribution(object):
         self.architectures = architectures
         self.description = description
         self.verbose = verbose
-    
+
     def getName(self):
         return self.name
-    
+
     def setName(self, name):
         self.name = name
-    
+
     def getArchitectures(self):
         return self.architectures
 
     def setArchitectures(self, architectures):
         self.architectures = architectures
-    
+
     def getDescription(self):
         return self.description
-    
+
     def setDescription(self, description):
         self.description = description
     

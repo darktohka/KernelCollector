@@ -26,6 +26,7 @@ class PackageCollector(object):
         release = releases[-1]
         prerelease = prereleases[-1]
         dailyRelease = self.getNewestDailyRelease()
+        downloaded = False
 
         self.log('Current release: {0}'.format(release))
         self.log('Current release candidate: {0}'.format(prerelease))
@@ -41,20 +42,24 @@ class PackageCollector(object):
         if self.needToRedownload('linux-current', release):
             if self.downloadAndRepackAll(release, release, 'linux-current'):
                 self.markDownloaded('linux-current', release)
+                downloaded = True
 
         # Redownload beta (release candidate) build if necessary
         if self.needToRedownload('linux-beta', prerelease):
             if self.downloadAndRepackAll(prerelease, prerelease, 'linux-beta'):
                 self.markDownloaded('linux-beta', prerelease)
+                downloaded = True
 
         # Redownload devel build if necessary
         if self.needToRedownload('linux-devel', dailyRelease):
             if self.downloadAndRepackAll('daily/{0}'.format(dailyRelease), 'v' + dailyRelease, 'linux-devel'):
                 self.markDownloaded('linux-devel', dailyRelease)
+                downloaded = True
 
         # Update cache and publish repository
-        self.updateCache()
-        self.publishRepository()
+        if downloaded:
+            self.updateCache()
+            self.publishRepository()
 
     def getAllReleases(self):
         # We use the Ubuntu kernel mainline as the build source.
