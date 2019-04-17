@@ -91,6 +91,10 @@ After setting up a web server, you'll need to create a cronjob to automatically 
 sudo crontab -e
 ```
 
-Here's an example crontab configuration that will run KernelCollector installed in `/star/pkglist` every hour: `0 * * * * /bin/bash /star/pkglist/run.sh`
+Here's an example crontab configuration that will run KernelCollector installed in `/star/pkglist` every hour:
+
+```
+0 * * * * /bin/bash /star/pkglist/run.sh >/dev/null 2>&1
+```
 
 And that's all there's to it! You might want to publish your GPG keys to a key server, such as `keyserver.ubuntu.com`: `gpg --keyserver keyserver.ubuntu.com --send-keys ABCDEFGH`
