@@ -1,2 +1,4 @@
-requests
 bs4
+deb-pkg-tools
+python-gnupg
+requests

@@ -64,12 +64,6 @@ python3 -m pip install -r requirements.py
 sudo sh run.sh
 ```
 
-You'll need to install `reprepro` and `expect` next, as they're required for the package management aspect of KernelCollector.
-
-```
-sudo apt install reprepro expect
-```
-
 Next, edit the `settings.json` file to your liking:
 
 * `architectures`: Defaults to `"amd64", "i386"`. These are the architectures that your package list will track. Possible values: `"amd64", "i386", "armhf", "arm64", "ppc64el", "390x"`
@@ -87,7 +81,7 @@ Next, run the package collector for the first time:
 sudo sh run.sh
 ```
 
-After running the package collector, your packages will have already been published to your repository. To make this repository accessible from the internet, however, you'll need a web server. Make sure to block the `db` and `conf` folders from being read, as they are used internally by the `reprepro` utility.
+After running the package collector, your packages will have already been published to your repository. To make this repository accessible from the internet, however, you'll need a web server.
 
 An example config for nginx can be found in the `supplementary` folder, but changes might need to be made if you desire SSL support.
 

@@ -1,5 +1,8 @@
 from .PackageCollector import PackageCollector
+from .PackageList import PackageList
+from .PackageDistribution import PackageDistribution
 import traceback, json, os, sys, time
+import sys
 
 class Main(object):
 
@@ -23,7 +26,11 @@ class Main(object):
             self.saveSettings()
             sys.exit()
 
-        self.packageCollector = PackageCollector(self.settings['repoPath'], self.settings['architectures'], self.settings['distribution'], self.settings['description'], self.settings['gpgKey'], self.settings['gpgPassword'], verbose=True)
+        self.packageList = PackageList(self.settings['repoPath'].rstrip('/'), self.settings['gpgKey'], self.settings['gpgPassword'], verbose=True)
+        self.packageDist = PackageDistribution(self.settings['distribution'], self.settings['architectures'], self.settings['description'], verbose=True)
+        self.packageList.addDistribution(self.packageDist)
+
+        self.packageCollector = PackageCollector(self.settings['architectures'], self.packageList, verbose=True)
         self.logFolder = os.path.join(os.getcwd(), 'logs')
 
     def runAllBuilds(self):

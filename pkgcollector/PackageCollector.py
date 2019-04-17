@@ -4,17 +4,13 @@ import json, requests, tempfile, shutil, os, time, uuid
 
 class PackageCollector(object):
 
-    def __init__(self, repoPath, architectures, distribution, description, gpgKey, gpgPassword, verbose=True):
-        self.repoPath = repoPath
+    def __init__(self, architectures, pkgList, verbose=True):
         self.architectures = architectures
-        self.distribution = distribution
-        self.description = description
-        self.gpgKey = gpgKey
-        self.gpgPassword = gpgPassword
+        self.pkgList = pkgList
         self.tmpDir = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
         self.verbose = verbose
+        self.currentDir = os.getcwd()
         self.reloadCache()
-        self.setupRepository()
 
     def log(self, message):
         if self.verbose:
@@ -22,6 +18,7 @@ class PackageCollector(object):
 
     def runAllBuilds(self):
         # Get all releases and prereleases
+        self.log('Current directory is {0}'.format(self.currentDir))
         self.log('Checking latest versions of the kernel...')
         releases, prereleases = self.getAllReleases()
 
@@ -42,43 +39,22 @@ class PackageCollector(object):
 
         # Redownload stable build if necessary
         if self.needToRedownload('linux-current', release):
-            self.downloadAndRepackAll(release, release, 'linux-current')
-            self.markDownloaded('linux-current', release)
+            if self.downloadAndRepackAll(release, release, 'linux-current'):
+                self.markDownloaded('linux-current', release)
 
         # Redownload beta (release candidate) build if necessary
         if self.needToRedownload('linux-beta', prerelease):
-            self.downloadAndRepackAll(prerelease, prerelease, 'linux-beta')
-            self.markDownloaded('linux-beta', prerelease)
+            if self.downloadAndRepackAll(prerelease, prerelease, 'linux-beta'):
+                self.markDownloaded('linux-beta', prerelease)
 
         # Redownload devel build if necessary
         if self.needToRedownload('linux-devel', dailyRelease):
-            self.downloadAndRepackAll('daily/{0}'.format(dailyRelease), 'v' + dailyRelease, 'linux-devel')
-            self.markDownloaded('linux-devel', dailyRelease)
+            if self.downloadAndRepackAll('daily/{0}'.format(dailyRelease), 'v' + dailyRelease, 'linux-devel'):
+                self.markDownloaded('linux-devel', dailyRelease)
 
         # Update cache and publish repository
         self.updateCache()
         self.publishRepository()
-
-    def setupRepository(self):
-        # Create config folder if necessary
-        confPath = os.path.join(self.repoPath, 'conf')
-
-        if not os.path.exists(confPath):
-            os.makedirs(confPath)
-
-        # Create necessary files for the repository: options and distributions
-        # Warning: these files must end with a newline!
-        with open(os.path.join(confPath, 'options'), 'w') as file:
-            options = ['verbose', 'basedir {0}'.format(self.repoPath), 'ask-passphrase']
-            file.write('\n'.join(options) + '\n')
-
-        with open(os.path.join(confPath, 'distributions'), 'w') as file:
-            options = [
-                'Origin: linux-kernel', 'Label: linux-kernel', 'Codename: {0}'.format(self.distribution),
-                'Architectures: {0}'.format(' '.join(self.architectures)), 'Components: main',
-                'Description: {0}'.format(self.description), 'SignWith: {0}'.format(self.gpgKey)
-            ]
-            file.write('\n'.join(options) + '\n')
 
     def getAllReleases(self):
         # We use the Ubuntu kernel mainline as the build source.
@@ -245,6 +221,7 @@ class PackageCollector(object):
 
         # Repack the .deb file
         os.system('dpkg-deb -b {0} {1}'.format(extractFolder, debFilename))
+        self.pkgList.addDebToPool(debFilename)
 
         # Remove the temporary extract folder
         if os.path.exists(extractFolder):
@@ -255,6 +232,23 @@ class PackageCollector(object):
         self.log('Downloading release: {0}'.format(releaseType))
 
         files = self.getFiles(releaseLink, releaseType)
+        requiredTypes = ['image', 'modules', 'headers']
+        currentTypes = []
+
+        for pkgName in files.keys():
+            type = pkgName.split('-')
+
+            if len(type) < 3:
+                continue
+
+            type = type[2]
+
+            if type in requiredTypes and type not in currentTypes:
+                currentTypes.append(type)
+
+        if len(currentTypes) != len(requiredTypes):
+            self.log('Release is not yet ready: {0}'.format(releaseType))
+            return False
 
         # Go through all files
         for pkgName, filename in files.items():
@@ -269,6 +263,7 @@ class PackageCollector(object):
 
         # Update cache
         self.updateCache()
+        return True
 
     def reloadCache(self):
         # Reload the cache.
@@ -301,20 +296,7 @@ class PackageCollector(object):
 
     def publishRepository(self):
         # If temporary directory doesn't exist, nothing matters
-        if not os.path.exists(self.tmpDir):
-            return
+        self.pkgList.saveAllDistributions('l')
 
-        # Delete lock file if it exists
-        lockFile = os.path.join(self.repoPath, 'db', 'lockfile')
-
-        if os.path.exists(lockFile):
-            os.remove(lockFile)
-
-        # Collect all deb files in the temporary folder and run the publish command
-        debs = [os.path.join(self.tmpDir, file) for file in os.listdir(self.tmpDir) if file.endswith('.deb')]
-
-        if debs:
-            os.system('./reprepro_expect {0} {1} includedeb {2} {3}'.format(self.gpgPassword, self.repoPath, self.distribution, ' '.join(debs)))
-
-        # Delete the temporary folder
-        shutil.rmtree(self.tmpDir)
+        if os.path.exists(self.tmpDir):
+            shutil.rmtree(self.tmpDir)
