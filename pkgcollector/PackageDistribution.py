@@ -63,10 +63,10 @@ class PackageDistribution(object):
         # Associate our packages with architectures.
         for release in releases:
             fullPath, data = release
-            arch = data['Architecture']
+            arch = data['Architecture'].lower()
             data = unparse_control_fields(data).dump()
 
-            if arch == 'All':
+            if arch == 'all':
                 for arch in self.architectures:
                     archToPackages[arch].append(data)
             elif arch in self.architectures:
