@@ -2,6 +2,9 @@ from bs4 import BeautifulSoup
 from . import Utils
 import json, requests, tempfile, shutil, os, time, uuid
 
+FIND_IMAGE_RM = 'rm -f /lib/modules/$version/.fresh-install'
+INITRD_IMAGE_RM = 'rm -f /boot/initrd.img-$version'
+
 class PackageCollector(object):
 
     def __init__(self, architectures, pkgList, verbose=True):
@@ -174,6 +177,7 @@ class PackageCollector(object):
         debFilename = os.path.join(self.tmpDir, pkgName + '.deb')
         extractFolder = os.path.join(self.tmpDir, uuid.uuid4().hex)
         controlFilename = os.path.join(extractFolder, 'DEBIAN', 'control')
+        postrmFilename = os.path.join(extractFolder, 'DEBIAN', 'postrm')
         link = 'https://kernel.ubuntu.com/~kernel-ppa/mainline/{0}/{1}'.format(releaseLink, filename)
 
         # Create a temporary folder for the repackaging
@@ -223,6 +227,18 @@ class PackageCollector(object):
 
         with open(controlFilename, 'w') as f:
             f.write('\n'.join(controlLines))
+
+        # The Ubuntu kernel images do not remove initrd.img in the postrm script.
+        # Remove the initrd.img right before the fresh-install file is removed.
+        if os.path.exists(postrmFilename):
+            with open(postrmFilename, 'r') as f:
+                postrmLines = f.read().replace('\r', '').split('\n')
+
+            if FIND_IMAGE_RM in postrmLines:
+                postrmLines.insert(postrmLines.index(FIND_IMAGE_RM), INITRD_IMAGE_RM)
+
+                with open(postrmFilename, 'w') as f:
+                    f.write('\n'.join(postrmLines))
 
         # Repack the .deb file
         os.system('dpkg-deb -b {0} {1}'.format(extractFolder, debFilename))
