@@ -61,7 +61,7 @@ class PackageCollector(object):
 
         # Redownload devel build if necessary
         if self.needToRedownload('linux-devel', dailyRelease):
-            if self.downloadAndRepackAll('daily/{0}'.format(dailyRelease), 'v' + dailyRelease, 'linux-devel'):
+            if self.downloadAndRepackAll('daily/{0}'.format(dailyRelease), dailyRelease, 'linux-devel'):
                 self.markDownloaded('linux-devel', dailyRelease)
                 downloaded = True
 
@@ -179,7 +179,7 @@ class PackageCollector(object):
 
         return files
 
-    def downloadAndRepack(self, releaseLink, releaseName, pkgName, filename):
+    def downloadAndRepack(self, releaseLink, releaseName, releaseType, pkgName, filename):
         debFilename = os.path.join(self.tmpDir, pkgName + '.deb')
         extractFolder = os.path.join(self.tmpDir, uuid.uuid4().hex)
         controlFilename = os.path.join(extractFolder, 'DEBIAN', 'control')
@@ -192,8 +192,20 @@ class PackageCollector(object):
 
         os.makedirs(extractFolder)
 
+        # Kernel versions such as 5.0 have to be adjusted to 5.0.0
+        if releaseType != 'linux-devel':
+            names = releaseName.split('-')
+            release = list(Utils.releaseToTuple(names[0]))
+
+            if len(release) < 3:
+                while len(release) < 3:
+                    release.append(0)
+
+            names[0] = '.'.join([str(num) for num in release])
+            releaseName = '-'.join(names)
+
         # Download the .deb
-        self.log('Downloading package {0} (release {1})'.format(pkgName, releaseName))
+        self.log('Downloading package {0} (release v{1})'.format(pkgName, releaseName))
         Utils.downloadFile(link, debFilename)
 
         # Extract the .deb file
@@ -216,7 +228,7 @@ class PackageCollector(object):
             if line.startswith('Package:'):
                 controlLines[i] = 'Package: {0}'.format(pkgName)
             elif line.startswith('Version:'):
-                controlLines[i] = 'Version: {0}'.format(releaseName[1:])
+                controlLines[i] = 'Version: {0}'.format(releaseName)
             elif line.startswith('Depends: '):
                 dependencies = [dep for dep in line[len('Depends: '):].split(', ') if not dep.startswith('linux-')]
                 controlLines[i] = 'Depends: {0}'.format(', '.join(dependencies))
@@ -285,7 +297,7 @@ class PackageCollector(object):
                 continue
 
             # Download and repack
-            self.downloadAndRepack(releaseLink, releaseName, pkgName, filename)
+            self.downloadAndRepack(releaseLink, releaseName, releaseType, pkgName, filename)
             self.fileCache[pkgName] = filename
 
         # Update cache
