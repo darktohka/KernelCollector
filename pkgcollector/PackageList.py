@@ -55,7 +55,8 @@ class PackageList(object):
             os.makedirs(poolFolder)
 
         # Remove any old deb package, and move from original location to pool
-        poolFilename = os.path.join(poolFolder, os.path.basename(filename))
+        basename, ext = os.path.splitext(os.path.basename(filename))
+        poolFilename = os.path.join(poolFolder, '{0}_tmp{1}'.format(basename, ext))
 
         if os.path.exists(poolFilename):
             os.remove(poolFilename)
@@ -76,7 +77,20 @@ class PackageList(object):
         # If we have no pool folder, there are no artifacts.
         if not os.path.exists(poolFolder):
             return []
-        
+
+        # Rename all _tmp files
+        for file in os.listdir(poolFolder):
+            if not file.endswith('_tmp.deb'):
+                continue
+
+            fullPath = os.path.join(poolFolder, file)
+            newFile = '{0}.deb'.format(fullPath[:-len('_tmp.deb')])
+
+            if os.path.exists(newFile):
+                os.remove(newFile)
+
+            shutil.move(fullPath, newFile)
+
         # We have to gather all packages
         pkgToVersions = {}
 
@@ -86,10 +100,10 @@ class PackageList(object):
             if not fullPath.endswith('.deb'):
                 os.remove(fullPath)
                 continue
-            
+
             basename = os.path.basename(fullPath)
             self.log('Inspecting {0}...'.format(basename))
-            
+
             try:
                 data = inspect_package_fields(fullPath)
             except:
@@ -104,7 +118,7 @@ class PackageList(object):
                 self.log('Removing duplicate version {0} from package {1}...'.format(version, pkgName))
                 os.remove(fullPath)
                 continue
-            
+
             poolFilename = os.path.join(poolFolder, basename)[len(self.repoPath):].lstrip('/')
             md5, sha1, sha256 = Utils.getAllHashes(fullPath)
             data['Filename'] = poolFilename

@@ -1,11 +1,8 @@
 import requests, re
 import hashlib
 
-def prereleaseToTuple(name):
-    return tuple(int(x) for x in re.split('\\-rc|\\.', name, 0))
-
 def releaseToTuple(name):
-    return tuple(int(x) for x in name.split('.'))
+    return tuple(int(x) for x in re.split('\\-rc|\\.', name, 0))
 
 def downloadFile(link, destination):
     with requests.get(link, stream=True) as r:
