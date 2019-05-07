@@ -28,6 +28,12 @@ class PackageCollector(object):
         # The newest release is always the last in the list
         release = releases[-1]
         prerelease = prereleases[-1]
+
+        # At the end of every release candidate cycle, a new kernel version is released.
+        # Upgrade the prerelease branch if there is no newer prerelease than the current release.
+        if Utils.releaseToTuple(release[1:])[0:2] >= Utils.releaseToTuple(prerelease[1:])[0:2]:
+            prerelease = release
+
         dailyRelease = self.getNewestDailyRelease()
         downloaded = False
 
@@ -101,7 +107,7 @@ class PackageCollector(object):
                 releases.append(name)
 
         # Sort the releases in descending order
-        prereleases.sort(key=lambda x: Utils.prereleaseToTuple(x[1:]))
+        prereleases.sort(key=lambda x: Utils.releaseToTuple(x[1:]))
         releases.sort(key=lambda x: Utils.releaseToTuple(x[1:]))
 
         return releases, prereleases
