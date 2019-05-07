@@ -49,13 +49,13 @@ class PackageCollector(object):
 
         # Redownload stable build if necessary
         if self.needToRedownload('linux-current', release):
-            if self.downloadAndRepackAll(release, release, 'linux-current'):
+            if self.downloadAndRepackAll(release, release[1:], 'linux-current'):
                 self.markDownloaded('linux-current', release)
                 downloaded = True
 
         # Redownload beta (release candidate) build if necessary
         if self.needToRedownload('linux-beta', prerelease):
-            if self.downloadAndRepackAll(prerelease, prerelease, 'linux-beta'):
+            if self.downloadAndRepackAll(prerelease, prerelease[1:], 'linux-beta'):
                 self.markDownloaded('linux-beta', prerelease)
                 downloaded = True
 
