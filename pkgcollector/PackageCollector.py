@@ -48,22 +48,16 @@ class PackageCollector(object):
         os.makedirs(self.tmpDir)
 
         # Redownload stable build if necessary
-        if self.needToRedownload('linux-current', release):
-            if self.downloadAndRepackAll(release, release[1:], 'linux-current'):
-                self.markDownloaded('linux-current', release)
-                downloaded = True
+        if self.downloadAndRepackAll(release, release[1:], 'linux-current'):
+            downloaded = True
 
         # Redownload beta (release candidate) build if necessary
-        if self.needToRedownload('linux-beta', prerelease):
-            if self.downloadAndRepackAll(prerelease, prerelease[1:], 'linux-beta'):
-                self.markDownloaded('linux-beta', prerelease)
-                downloaded = True
+        if self.downloadAndRepackAll(prerelease, prerelease[1:], 'linux-beta'):
+            downloaded = True
 
         # Redownload devel build if necessary
-        if self.needToRedownload('linux-devel', dailyRelease):
-            if self.downloadAndRepackAll('daily/{0}'.format(dailyRelease), dailyRelease, 'linux-devel'):
-                self.markDownloaded('linux-devel', dailyRelease)
-                downloaded = True
+        if self.downloadAndRepackAll('daily/{0}'.format(dailyRelease), dailyRelease, 'linux-devel'):
+            downloaded = True
 
         # Update cache and publish repository
         if downloaded:
@@ -289,6 +283,8 @@ class PackageCollector(object):
             self.log('Release is not yet ready: {0}'.format(releaseType))
             return False
 
+        downloaded = False
+
         # Go through all files
         for pkgName, filename in files.items():
             # Check our cache
@@ -299,10 +295,13 @@ class PackageCollector(object):
             # Download and repack
             self.downloadAndRepack(releaseLink, releaseName, releaseType, pkgName, filename)
             self.fileCache[pkgName] = filename
+            downloaded = True
 
         # Update cache
-        self.updateCache()
-        return True
+        if downloaded:
+            self.updateCache()
+
+        return downloaded
 
     def reloadCache(self):
         # Reload the cache.
@@ -314,24 +313,13 @@ class PackageCollector(object):
             self.cache = {}
 
         self.fileCache = self.cache.get('files', {})
-        self.releaseCache = self.cache.get('releases', {})
 
     def updateCache(self):
         # Save the cache to disk.
         self.cache['files'] = self.fileCache
-        self.cache['releases'] = self.releaseCache
 
         with open('cache.json', 'w') as file:
             json.dump(self.cache, file, sort_keys=True, indent=4, separators=(',', ': '))
-
-    def needToRedownload(self, releaseType, releaseName):
-        # Checks whether a release has been downloaded before or not
-        return self.releaseCache.get(releaseType, None) != releaseName
-
-    def markDownloaded(self, releaseType, releaseName):
-        # Mark a release as downloaded.
-        # This means that the package collector will not redownload this release again for no reason
-        self.releaseCache[releaseType] = releaseName
 
     def publishRepository(self):
         # If temporary directory doesn't exist, nothing matters
