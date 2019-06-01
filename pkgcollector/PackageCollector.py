@@ -3,7 +3,8 @@ from . import Utils
 import json, requests, tempfile, shutil, os, time, uuid
 
 FIND_IMAGE_RM = 'rm -f /lib/modules/$version/.fresh-install'
-INITRD_IMAGE_RM = 'rm -f /boot/initrd.img-$version'
+NEW_FIND_IMAGE_RM = 'rm -rf /lib/modules/$version'
+INITRD_IMAGE_RMS = ['rm -f /boot/initrd.img-$version', 'rm -f /var/lib/initramfs-tools/$version']
 
 class PackageCollector(object):
 
@@ -247,7 +248,11 @@ class PackageCollector(object):
                 postrmLines = f.read().replace('\r', '').split('\n')
 
             if FIND_IMAGE_RM in postrmLines:
-                postrmLines.insert(postrmLines.index(FIND_IMAGE_RM), INITRD_IMAGE_RM)
+                index = postrmLines.index(FIND_IMAGE_RM)
+                postrmLines[index] = NEW_FIND_IMAGE_RM
+
+                for rmLine in INITRD_IMAGE_RMS:
+                    postrmLines.insert(index, rmLine)
 
                 with open(postrmFilename, 'w') as f:
                     f.write('\n'.join(postrmLines))
