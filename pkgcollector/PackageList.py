@@ -94,7 +94,7 @@ class PackageList(object):
         # We have to gather all packages
         pkgToVersions = {}
 
-        for file in os.listdir(poolFolder):
+        for file in sorted(os.listdir(poolFolder)):
             fullPath = os.path.join(poolFolder, file)
 
             if not fullPath.endswith('.deb'):
