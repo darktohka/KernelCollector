@@ -32,7 +32,7 @@ class PackageDistribution(object):
 
     def setDescription(self, description):
         self.description = description
-    
+
     def getPackageList(self):
         return self.pkgList
 
@@ -41,7 +41,7 @@ class PackageDistribution(object):
 
         if not self.pkgList:
             return
-        
+
         self.folder = os.path.join(self.pkgList.distFolder, self.name)
 
         if not os.path.exists(self.folder):
@@ -53,7 +53,7 @@ class PackageDistribution(object):
     def log(self, message):
         if self.verbose:
             print(message)
-    
+
     def save(self, releases):
         mainDir = os.path.join(self.folder, 'main')
         archToPackages = {arch: [] for arch in self.architectures}
@@ -75,21 +75,21 @@ class PackageDistribution(object):
         # Write our package lists for all architectures.
         for arch in self.architectures:
             archDir = self.getArchDir(arch)
-            
+
             if not os.path.exists(archDir):
                 os.makedirs(archDir)
-            
+
             with open(os.path.join(archDir, 'Release'), 'w') as file:
                 file.write('\n'.join([
                     'Component: main', 'Origin: linux-kernel', 'Label: linux-kernel',
                     'Architecture: {0}'.format(arch), 'Description: {0}'.format(self.description)
                 ]))
-        
+
             packages = '\n'.join(archToPackages[arch])
 
             with open(os.path.join(archDir, 'Packages'), 'w') as file:
                 file.write(packages)
-            
+
             with gzip.open(os.path.join(archDir, 'Packages.gz'), 'wt') as file:
                 file.write(packages)
 
@@ -97,7 +97,7 @@ class PackageDistribution(object):
         md5s = []
         sha1s = []
         sha256s = []
-        
+
         date = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S UTC')
 
         for root, _, files in os.walk(mainDir):
@@ -111,16 +111,16 @@ class PackageDistribution(object):
                 sha1s.append(' {0} {1} {2}'.format(sha1, size, displayPath))
                 sha256s.append(' {0} {1} {2}'.format(sha256, size, displayPath))
 
-        # Save the final package list, signing 
+        # Save the final package list, signing
         release = '\n'.join([
-            'Origin: linux-kernel', 'Label: linux-kernel', 'Codename: {0}'.format(self.name), 'Date: {0}'.format(date),
+            'Origin: linux-kernel', 'Label: linux-kernel', 'Suite: {0}'.format(self.name), 'Codename: {0}'.format(self.name), 'Date: {0}'.format(date),
             'Architectures: {0}'.format(' '.join(self.architectures)), 'Components: main', 'Description: {0}'.format(self.description),
             'MD5Sum:\n{0}'.format('\n'.join(md5s)), 'SHA1:\n{0}'.format('\n'.join(sha1s)), 'SHA256:\n{0}'.format('\n'.join(sha256s))
         ])
 
         with open(os.path.join(self.folder, 'Release'), 'w') as file:
             file.write(release)
-        
+
         with open(os.path.join(self.folder, 'InRelease'), 'w') as file:
             try:
                 file.write(str(gpg.sign(release, keyid=self.pkgList.gpgKey, passphrase=self.pkgList.gpgPassword)))
