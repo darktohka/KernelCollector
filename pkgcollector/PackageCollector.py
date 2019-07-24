@@ -226,6 +226,13 @@ class PackageCollector(object):
                 controlLines[i] = 'Version: {0}'.format(releaseName)
             elif line.startswith('Depends: '):
                 dependencies = [dep for dep in line[len('Depends: '):].split(', ') if not dep.startswith('linux-')]
+
+                # initramfs depends on the logsave script, which is not installed by default.
+                # Without the logsave script, the system will not boot.
+                if 'image' in pkgName:
+                    if 'logsave' not in dependencies:
+                        dependencies.append('logsave')
+
                 controlLines[i] = 'Depends: {0}'.format(', '.join(dependencies))
             elif line.startswith('Conflicts'):
                 origConflicts = ['generic', 'lowlatency', 'snapdragon']
