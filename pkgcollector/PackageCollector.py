@@ -124,7 +124,10 @@ class PackageCollector(object):
 
             # The link encapsulated inside the <a> tag and the text of the tag will match for daily releases
             if a and a['href'] == a.text:
-                return a.text.rstrip('/')
+                version = a.text.rstrip('/')
+
+                if version != 'current':
+                    return version
 
     def getFiles(self, releaseLink, releaseType):
         with requests.get('https://kernel.ubuntu.com/~kernel-ppa/mainline/{0}'.format(releaseLink)) as site:
