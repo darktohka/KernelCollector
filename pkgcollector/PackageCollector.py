@@ -65,6 +65,10 @@ class PackageCollector(object):
             self.updateCache()
             self.publishRepository()
 
+        # Remove temporary folder
+        if os.path.exists(self.tmpDir):
+            shutil.rmtree(self.tmpDir)
+
     def getAllReleases(self):
         # We use the Ubuntu kernel mainline as the build source.
         # This method will return a list of releases and prereleases, sorted in ascending order.
@@ -339,6 +343,3 @@ class PackageCollector(object):
     def publishRepository(self):
         # If temporary directory doesn't exist, nothing matters
         self.pkgList.saveAllDistributions('l')
-
-        if os.path.exists(self.tmpDir):
-            shutil.rmtree(self.tmpDir)
