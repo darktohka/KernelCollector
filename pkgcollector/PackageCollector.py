@@ -113,10 +113,11 @@ class PackageCollector(object):
 
     def getNewestDailyRelease(self):
         # We have to find the newest daily release version
-        with requests.get('https://kernel.ubuntu.com/~kernel-ppa/mainline/daily/?C=M;O=D') as site:
+        with requests.get('https://kernel.ubuntu.com/~kernel-ppa/mainline/daily') as site:
             data = site.content
 
         soup = BeautifulSoup(data, 'html.parser')
+        versions = []
 
         for row in soup.findAll('tr'):
             tds = row.findAll('td')
@@ -131,7 +132,10 @@ class PackageCollector(object):
                 version = a.text.rstrip('/')
 
                 if version != 'current':
-                    return version
+                    versions.append(version)
+
+        if versions:
+            return max(versions)
 
     def getFiles(self, releaseLink, releaseType):
         with requests.get('https://kernel.ubuntu.com/~kernel-ppa/mainline/{0}'.format(releaseLink)) as site:
