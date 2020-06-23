@@ -153,10 +153,10 @@ class PackageCollector(object):
             # If we've reached MainlineBuilds, then we're done with all architectures.
             # If we have a chosen architecture and the file is a .deb package, then it has to be in
             # our list of architectures and it must not be an lpae-based build (we don't package those)
-            if text.startswith('BUILD.LOG.'):
-                arch = text[len('BUILD.LOG.'):]
+            if text.endswith('/log'):
+                arch = text[:text.find('/log')]
                 continue
-            elif text.endswith('MainlineBuilds'):
+            elif text == 'Name':
                 break
             elif not text.endswith('.deb') or not arch:
                 continue
@@ -346,4 +346,4 @@ class PackageCollector(object):
 
     def publishRepository(self):
         # If temporary directory doesn't exist, nothing matters
-        self.pkgList.saveAllDistributions('l')
+        self.pkgList.saveAllDistributions(['l', 'custom'])

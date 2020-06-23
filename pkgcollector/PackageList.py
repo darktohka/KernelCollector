@@ -63,10 +63,13 @@ class PackageList(object):
 
         shutil.move(filename, poolFilename)
 
-    def saveAllDistributions(self, letter):
+    def saveAllDistributions(self, letters):
         # Save all distributions
         self.log('Saving package list...')
-        releases = self.getAllReleasesInPool(letter)
+        releases = []
+
+        for letter in letters:
+            releases.extend(self.getAllReleasesInPool(letter))
 
         for distribution in self.distributions.values():
             distribution.save(releases)
