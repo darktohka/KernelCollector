@@ -25,4 +25,4 @@ RUN \
     && rm -rf /tmp/* /var/cache/apk/*
 
 USER kernelcollector
-ENTRYPOINT ["python", "-m", "kernelcollector.Main"]
+ENTRYPOINT ["/bin/sh", "/srv/entrypoint.sh"]

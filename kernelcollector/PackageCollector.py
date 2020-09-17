@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 from . import Utils
-import json, requests, tempfile, shutil, os, time, uuid
+import json, logging, tempfile, shutil, os, time, uuid
+import requests
 
 FIND_IMAGE_RM = 'rm -f /lib/modules/$version/.fresh-install'
 NEW_FIND_IMAGE_RM = 'rm -rf /lib/modules/$version'
@@ -8,22 +9,18 @@ INITRD_IMAGE_RMS = ['rm -f /boot/initrd.img-$version', 'rm -f /var/lib/initramfs
 
 class PackageCollector(object):
 
-    def __init__(self, architectures, pkgList, verbose=True):
+    def __init__(self, logger, architectures, pkgList):
+        self.logger = logger
         self.architectures = architectures
         self.pkgList = pkgList
         self.tmpDir = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
-        self.verbose = verbose
         self.currentDir = os.getcwd()
         self.reloadCache()
 
-    def log(self, message):
-        if self.verbose:
-            print(message)
-
     def runAllBuilds(self):
         # Get all releases and prereleases
-        self.log('Current directory is {0}'.format(self.currentDir))
-        self.log('Checking latest versions of the kernel...')
+        logging.info(f'Current directory is {self.currentDir}')
+        logging.info('Checking latest versions of the kernel...')
         releases, prereleases = self.getAllReleases()
 
         # The newest release is always the last in the list
@@ -38,9 +35,9 @@ class PackageCollector(object):
         dailyRelease = self.getNewestDailyRelease()
         downloaded = False
 
-        self.log('Current release: {0}'.format(release))
-        self.log('Current release candidate: {0}'.format(prerelease))
-        self.log('Current daily build: v{0}'.format(dailyRelease))
+        logging.info(f'Current release: {release}')
+        logging.info(f'Current release candidate: {prerelease}')
+        logging.info(f'Current daily build: v{dailyRelease}')
 
         # Create the temporary folder
         if os.path.exists(self.tmpDir):
@@ -57,7 +54,7 @@ class PackageCollector(object):
             downloaded = True
 
         # Redownload devel build if necessary
-        if self.downloadAndRepackAll('daily/{0}'.format(dailyRelease), dailyRelease, 'linux-devel'):
+        if self.downloadAndRepackAll(f'daily/{dailyRelease}', dailyRelease, 'linux-devel'):
             downloaded = True
 
         # Update cache and publish repository
@@ -138,7 +135,7 @@ class PackageCollector(object):
             return max(versions)
 
     def getFiles(self, releaseLink, releaseType):
-        with requests.get('https://kernel.ubuntu.com/~kernel-ppa/mainline/{0}'.format(releaseLink)) as site:
+        with requests.get(f'https://kernel.ubuntu.com/~kernel-ppa/mainline/{releaseLink}') as site:
             data = site.content
 
         files = {}
@@ -171,17 +168,17 @@ class PackageCollector(object):
             # and they can be either generic, low latency or snapdragon (the processor)
             # The only package that doesn't have a sub type is headers-all, which is archless
             for type in ('image', 'modules', 'headers'):
-                if '-{0}-'.format(type) not in text:
+                if f'-{type}-' not in text:
                     continue
 
                 for subType in ('generic', 'lowlatency', 'snapdragon'):
-                    if '-{0}'.format(subType) in text:
-                        files['{0}-{1}-{2}-{3}'.format(releaseType, type, subType, arch)] = text
+                    if f'-{subType}' in text:
+                        files[f'{releaseType}-{type}-{subType}-{arch}'] = text
                         foundCurrent = True
                         break
 
             if (not foundCurrent) and '-headers-' in text:
-                files['{0}-headers-all'.format(releaseType)] = text
+                files[f'{releaseType}-headers-all'] = text
 
         return files
 
@@ -190,7 +187,7 @@ class PackageCollector(object):
         extractFolder = os.path.join(self.tmpDir, uuid.uuid4().hex)
         controlFilename = os.path.join(extractFolder, 'DEBIAN', 'control')
         postrmFilename = os.path.join(extractFolder, 'DEBIAN', 'postrm')
-        link = 'https://kernel.ubuntu.com/~kernel-ppa/mainline/{0}/{1}'.format(releaseLink, filename)
+        link = f'https://kernel.ubuntu.com/~kernel-ppa/mainline/{releaseLink}/{filename}'
 
         # Create a temporary folder for the repackaging
         if os.path.exists(extractFolder):
@@ -211,15 +208,23 @@ class PackageCollector(object):
             releaseName = '-'.join(names)
 
         # Download the .deb
-        self.log('Downloading package {0} (release v{1})'.format(pkgName, releaseName))
+        logging.info(f'Downloading package {pkgName} (release v{releaseName})')
         Utils.downloadFile(link, debFilename)
 
         # Extract the .deb file
-        os.system('dpkg-deb -R {0} {1}'.format(debFilename, extractFolder))
+        result = Utils.run_process(['dpkg-deb', '-R', debFilename, extractFolder])
+
+        if result.failed:
+            self.logger.add(f'Could not extract {os.path.basename(debFilename)} (error code {result.exit_code})!', alert=True)
+            self.logger.add(result.get_output(), pre=True)
+            self.logger.send_all()
+            return
+
         os.remove(debFilename)
 
         if not os.path.exists(controlFilename):
-            self.log('No control file for {0}...'.format(pkgName))
+            self.logger.add(f'No control file for {pkgName}...', alert=True)
+            self.logger.send_all()
             return
 
         # Rewrite the control file
@@ -232,9 +237,9 @@ class PackageCollector(object):
         # For example, generic packages will conflict with lowlatency and snapdragon packages
         for i, line in enumerate(controlLines):
             if line.startswith('Package:'):
-                controlLines[i] = 'Package: {0}'.format(pkgName)
+                controlLines[i] = f'Package: {pkgName}'
             elif line.startswith('Version:'):
-                controlLines[i] = 'Version: {0}'.format(releaseName)
+                controlLines[i] = f'Version: {releaseName}'
             elif line.startswith('Depends: '):
                 dependencies = [dep for dep in line[len('Depends: '):].split(', ') if not dep.startswith('linux-')]
 
@@ -276,7 +281,14 @@ class PackageCollector(object):
                     f.write('\n'.join(postrmLines))
 
         # Repack the .deb file
-        os.system('dpkg-deb -b {0} {1}'.format(extractFolder, debFilename))
+        result = Utils.run_process(['dpkg-deb', '-b', extractFolder, debFilename])
+
+        if result.failed:
+            self.logger.add(f'Could not pack {os.path.basename(debFilename)} (error code {result.exit_code})!', alert=True)
+            self.logger.add(result.get_output(), pre=True)
+            self.logger.send_all()
+            return
+
         self.pkgList.addDebToPool(debFilename)
 
         # Remove the temporary extract folder
@@ -285,7 +297,7 @@ class PackageCollector(object):
 
     def downloadAndRepackAll(self, releaseLink, releaseName, releaseType):
         # Download the file list for this release
-        self.log('Downloading release: {0}'.format(releaseType))
+        logging.info(f'Downloading release: {releaseType}')
 
         files = self.getFiles(releaseLink, releaseType)
         requiredTypes = ['image', 'modules', 'headers']
@@ -303,7 +315,8 @@ class PackageCollector(object):
                 currentTypes.append(type)
 
         if len(currentTypes) != len(requiredTypes):
-            self.log('Release is not yet ready: {0}'.format(releaseType))
+            self.logger.add(f'Release is not yet ready: {releaseType}')
+            self.logger.send_all()
             return False
 
         downloaded = False
@@ -312,7 +325,7 @@ class PackageCollector(object):
         for pkgName, filename in files.items():
             # Check our cache
             if self.fileCache.get(pkgName, None) == filename:
-                self.log('Skipping package {0}.'.format(pkgName))
+                logging.info(f'Skipping package {pkgName}.')
                 continue
 
             # Download and repack
@@ -347,3 +360,4 @@ class PackageCollector(object):
     def publishRepository(self):
         # If temporary directory doesn't exist, nothing matters
         self.pkgList.saveAllDistributions(['l', 'custom'])
+        self.pkgList.sendEmbeddedReport()

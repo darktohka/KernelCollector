@@ -2,15 +2,16 @@ from deb_pkg_tools.package import inspect_package_fields
 from distutils.version import LooseVersion
 from datetime import datetime
 from . import Utils
-import shutil, os
+import shutil, logging, time, os
 
 class PackageList(object):
 
-    def __init__(self, repoPath, gpgKey, gpgPassword, verbose=True):
+    def __init__(self, logger, repoPath, gpgKey, gpgPassword):
+        self.logger = logger
         self.gpgKey = gpgKey
         self.gpgPassword = gpgPassword
-        self.verbose = verbose
         self.distributions = {}
+        self.recentlyAdded = {}
         self.setRepoPath(repoPath)
 
     def getRepoPath(self):
@@ -40,13 +41,9 @@ class PackageList(object):
     def getDistribution(self, name):
         return self.distributions[name]
 
-    def log(self, message):
-        if self.verbose:
-            print(message)
-
     def addDebToPool(self, filename):
         basename = os.path.basename(filename)
-        self.log('Adding {0} to pool...'.format(basename))
+        logging.info(f'Adding {basename} to pool...')
 
         # Create the pool folder if necessary
         poolFolder = os.path.join(self.poolFolder, basename[0])
@@ -55,17 +52,18 @@ class PackageList(object):
             os.makedirs(poolFolder)
 
         # Remove any old deb package, and move from original location to pool
-        basename, ext = os.path.splitext(os.path.basename(filename))
-        poolFilename = os.path.join(poolFolder, '{0}_tmp{1}'.format(basename, ext))
+        noext, ext = os.path.splitext(basename)
+        poolFilename = os.path.join(poolFolder, f'{noext}_tmp{ext}')
 
         if os.path.exists(poolFilename):
             os.remove(poolFilename)
 
         shutil.move(filename, poolFilename)
+        self.recentlyAdded[basename] = None # Version to be filled out in getAllReleasesInPool
 
     def saveAllDistributions(self, letters):
         # Save all distributions
-        self.log('Saving package list...')
+        logging.info('Saving package list...')
         releases = []
 
         for letter in letters:
@@ -73,6 +71,33 @@ class PackageList(object):
 
         for distribution in self.distributions.values():
             distribution.save(releases)
+
+    def sendEmbeddedReport(self):
+        description = [f'**{filename}** has been updated to **v{version}**!' for filename, version in self.recentlyAdded.items() if version is not None]
+
+        if not description:
+            return
+
+        description = '\n'.join(description)
+        current_date = time.strftime('%Y-%m-%d %H:%M:%S')
+        content = {
+            'embeds': [{
+                'title': 'Your package list has been updated!',
+                'description': description,
+                'color': 7526106,
+                'author': {
+                    'name': 'Kernel Collector',
+                    'url': 'https://github.com/darktohka/kernelcollector',
+                    'icon_url': 'https://i.imgur.com/y6g563D.png'
+                },
+                'footer': {
+                    'text': f'This report has been generated on {current_date}.'
+                }
+            }]
+        }
+
+        self.logger.add_embed(content)
+        self.logger.send_all()
 
     def getAllReleasesInPool(self, letter):
         poolFolder = os.path.join(self.poolFolder, letter)
@@ -87,7 +112,7 @@ class PackageList(object):
                 continue
 
             fullPath = os.path.join(poolFolder, file)
-            newFile = '{0}.deb'.format(fullPath[:-len('_tmp.deb')])
+            newFile = fullPath[:-len('_tmp.deb')] + '.deb'
 
             if os.path.exists(newFile):
                 os.remove(newFile)
@@ -105,7 +130,7 @@ class PackageList(object):
                 continue
 
             basename = os.path.basename(fullPath)
-            self.log('Inspecting {0}...'.format(basename))
+            logging.info(f'Inspecting {basename}...')
 
             try:
                 data = inspect_package_fields(fullPath)
@@ -118,9 +143,13 @@ class PackageList(object):
             pkg = pkgToVersions.get(pkgName, {})
 
             if version in pkg:
-                self.log('Removing duplicate version {0} from package {1}...'.format(version, pkgName))
+                self.logger.add(f'Removing duplicate version {version} from package {pkgName}...')
+                self.logger.send_all()
                 os.remove(fullPath)
                 continue
+
+            if basename in self.recentlyAdded:
+                self.recentlyAdded[basename] = version
 
             poolFilename = os.path.join(poolFolder, basename)[len(self.repoPath):].lstrip('/')
             md5, sha1, sha256 = Utils.getAllHashes(fullPath)
@@ -131,6 +160,7 @@ class PackageList(object):
             data['SHA256'] = sha256
             pkg[version] = [fullPath, data]
             pkgToVersions[pkgName] = pkg
+
 
         releases = []
 
@@ -157,7 +187,8 @@ class PackageList(object):
                         continue
 
                     filename = pkgList[0]
-                    self.log('Removing old file {0}...'.format(os.path.basename(filename)))
+                    self.logger.add(f'Removing old file {os.path.basename(filename)}...')
+                    self.logger.send_all()
                     os.remove(filename)
 
             releases.append([fullPath, data])

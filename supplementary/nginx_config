@@ -6,7 +6,7 @@ server {
     server_tokens off;
 
     location / {
-        root /var/www/debian;
+        root /srv/packages;
         index index.html;
         autoindex on;
     }

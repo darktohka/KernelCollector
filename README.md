@@ -5,15 +5,15 @@ KernelCollector is a small Python script that handles the upkeep of a Linux kern
 It keeps track of header, image and module packages for the `amd64`, `i386`, `armhf`, `arm64`, `ppc64el` and `s390x` architectures.
 
 There are three kind of kernel images that KernelCollector collects:
- * `linux-current`: The newest stable version of the Linux kernel, for example: `v5.0.7`
- * `linux-beta`: The newest release candidate of the Linux kernel, for example: `v5.1-rc5`
- * `linux-devel`: The newest trunk build of the Linux kernel, for example: `v2019-04-16`
+ * `linux-current`: The newest stable version of the Linux kernel, for example: `v5.8.10`
+ * `linux-beta`: The newest release candidate of the Linux kernel, for example: `v5.9-rc5`
+ * `linux-devel`: The newest trunk build of the Linux kernel, for example: `v2019-09-17`
 
 Using a cronjob, KernelCollector can always keep these packages updated in the Debian package repository.
 
 This is useful because it allows users to automatically upgrade their Linux kernels to the latest version from the update channel, without any user input. For example, you will not receive beta or devel versions while on the current release channel.
 
-Older kernel versions will disappear once the newest kernel is installed. If kernel version `5.0.8` is released, everybody using the KernelCollector repository will automatically be upgraded to version `5.0.8`, straight from `5.0.7` - and so on.
+Older kernel versions will disappear once the newest kernel is installed. If kernel version `5.8.10` is released, everybody using the KernelCollector repository will automatically be upgraded to version `5.8.10`, straight from `5.8.9` - and so on.
 
 This kind of setup might not be useful (or too risky) for some people, in that case, you are welcome to handle your own kernel installations.
 
@@ -71,7 +71,7 @@ Next, edit the `settings.json` file to your liking:
 * `distribution`: Defaults to `sid`. This really doesn't matter, as the packages require a newer version of Debian or Ubuntu, and this is just a matter of preference.
 * `gpgKey`: Defaults to `ABCD`. Obviously, this isn't a real GPG key. Repositories maintained by KernelCollector are GPG signed. You will have to create your own GPG key, which can be password protected if needed.
 * `gpgPassword`: Defaults to `none`. If you don't have a GPG password, please set the password to `none`. If you have one, specify it here.
-* `repoPath`: Defaults to `/var/www/debian`. This is the filesystem path of your repository, where the artifacts will be published to.
+* `repoPath`: Defaults to `/srv/packages`. This is the filesystem path of your repository, where the artifacts will be published to.
 
 You might notice that you need a GPG key to sign the kernel packages. This is out of scope for this tutorial, Google is your friend in this regard, though `gpg --full-generate-key` might be a good point to start.
 

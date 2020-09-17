@@ -1,19 +1,19 @@
 from deb_pkg_tools.control import unparse_control_fields
 from datetime import datetime
 from . import Utils
+import traceback, logging, gzip, os
 import gnupg
-import gzip, os
 
 gpg = gnupg.GPG()
 gpg.encoding = 'utf-8'
 
 class PackageDistribution(object):
 
-    def __init__(self, name, architectures, description, verbose=True):
+    def __init__(self, logger, name, architectures, description):
+        self.logger = logger
         self.name = name
         self.architectures = architectures
         self.description = description
-        self.verbose = verbose
 
     def getName(self):
         return self.name
@@ -48,17 +48,22 @@ class PackageDistribution(object):
             os.makedirs(self.folder)
 
     def getArchDir(self, arch):
-        return os.path.join(self.folder, 'main', 'binary-{0}'.format(arch))
+        return os.path.join(self.folder, 'main', f'binary-{arch}')
 
-    def log(self, message):
-        if self.verbose:
-            print(message)
+    def signFile(self, filename, content, detach=False):
+        with open(filename, 'w') as file:
+            try:
+                file.write(str(gpg.sign(content, detach=detach, keyid=self.pkgList.gpgKey, passphrase=self.pkgList.gpgPassword)))
+            except:
+                self.logger.add(f'Could not sign {filename}! Please check your GPG keys!', alert=True)
+                self.logger.add(traceback.format_exc(), pre=True)
+                self.logger.send_all()
 
     def save(self, releases):
         mainDir = os.path.join(self.folder, 'main')
         archToPackages = {arch: [] for arch in self.architectures}
 
-        self.log("Writing package list to disk...")
+        logging.info('Writing package list to disk...')
 
         # Associate our packages with architectures.
         for release in releases:
@@ -82,7 +87,7 @@ class PackageDistribution(object):
             with open(os.path.join(archDir, 'Release'), 'w') as file:
                 file.write('\n'.join([
                     'Component: main', 'Origin: linux-kernel', 'Label: linux-kernel',
-                    'Architecture: {0}'.format(arch), 'Description: {0}'.format(self.description)
+                    f'Architecture: {arch}', f'Description: {self.description}'
                 ]))
 
             packages = '\n'.join(archToPackages[arch])
@@ -107,28 +112,19 @@ class PackageDistribution(object):
 
                 md5, sha1, sha256 = Utils.getAllHashes(fullPath)
                 size = str(os.path.getsize(fullPath))
-                md5s.append(' {0} {1} {2}'.format(md5, size, displayPath))
-                sha1s.append(' {0} {1} {2}'.format(sha1, size, displayPath))
-                sha256s.append(' {0} {1} {2}'.format(sha256, size, displayPath))
+                md5s.append(f' {md5} {size} {displayPath}')
+                sha1s.append(f' {sha1} {size} {displayPath}')
+                sha256s.append(f' {sha256} {size} {displayPath}')
 
         # Save the final package list, signing
         release = '\n'.join([
-            'Origin: linux-kernel', 'Label: linux-kernel', 'Suite: {0}'.format(self.name), 'Codename: {0}'.format(self.name), 'Date: {0}'.format(date),
-            'Architectures: {0}'.format(' '.join(self.architectures)), 'Components: main', 'Description: {0}'.format(self.description),
+            'Origin: linux-kernel', 'Label: linux-kernel', f'Suite: {self.name}', f'Codename: {self.name}', f'Date: {date}',
+            'Architectures: {0}'.format(' '.join(self.architectures)), 'Components: main', f'Description: {self.description}',
             'MD5Sum:\n{0}'.format('\n'.join(md5s)), 'SHA1:\n{0}'.format('\n'.join(sha1s)), 'SHA256:\n{0}'.format('\n'.join(sha256s))
         ])
 
         with open(os.path.join(self.folder, 'Release'), 'w') as file:
             file.write(release)
 
-        with open(os.path.join(self.folder, 'InRelease'), 'w') as file:
-            try:
-                file.write(str(gpg.sign(release, keyid=self.pkgList.gpgKey, passphrase=self.pkgList.gpgPassword)))
-            except:
-                self.log("Couldn't sign InRelease :( Check your GPG keys!")
-
-        with open(os.path.join(self.folder, 'Release.gpg'), 'w') as file:
-            try:
-                file.write(str(gpg.sign(release, detach=True, keyid=self.pkgList.gpgKey, passphrase=self.pkgList.gpgPassword)))
-            except:
-                self.log("Couldn't sign Release.gpg :( Check your GPG keys!")
+        self.signFile(os.path.join(self.folder, 'InRelease'), release, detach=False)
+        self.signFile(os.path.join(self.folder, 'Release.gpg'), release, detach=True)

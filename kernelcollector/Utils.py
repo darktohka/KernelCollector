@@ -1,5 +1,44 @@
-import requests, re
-import hashlib
+import hashlib, subprocess, re
+import requests
+
+class ProcessOutput(object):
+
+    def __init__(self, lines, exit_code):
+        self.lines = lines
+        self.exit_code = exit_code
+
+    def get_lines(self):
+        return self.lines
+
+    def get_output(self):
+        return ''.join(self.lines)
+
+    @property
+    def success(self):
+        return self.exit_code == 0
+
+    @property
+    def failed(self):
+        return self.exit_code != 0
+
+def run_process(process):
+    if isinstance(process, str):
+        process = process.split()
+
+    try:
+        process = subprocess.Popen(process, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except:
+        return ProcessOutput([], -1)
+
+    lines = []
+
+    with process.stdout:
+        for line in iter(process.stdout.readline, b''):
+            if line:
+                lines.append(line.decode('utf-8'))
+
+    process.wait()
+    return ProcessOutput(lines, process.returncode)
 
 def releaseToTuple(name):
     return tuple(int(x) for x in re.split('\\-rc|\\.', name, 0))
