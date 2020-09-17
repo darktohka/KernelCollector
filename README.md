@@ -102,3 +102,27 @@ And that's all there's to it! You might want to publish your GPG keys to a key s
 ```
 gpg --keyserver keyserver.ubuntu.com --send-keys ABCDEFGH
 ```
+
+
+## Docker Guide
+
+KernelCollector can be ran using Docker. First, build the image.
+
+```
+git clone git@github.com:darktohka/KernelCollector .
+docker build . -t kernelcollector
+```
+
+To run the image straight from Docker Hub, pull the image from there instead.
+
+```
+docker pull darktohka/kernelcollector:latest
+```
+
+Next, run the image inside a container. Make sure to mount your GPG directory:
+
+```
+chown 423:423 settings.json cache.json
+chown -R 423:423 packages
+docker run -d --name kernelcollector -v "$(pwd)/cache.json:/srv/cache.json" -v "$(pwd)/settings.json:/srv/settings.json" -v "$(pwd)/packages:/srv/packages" -v "$HOME/.gnupg:/home/kernelcollector/.gnupg" kernelcollector
+```

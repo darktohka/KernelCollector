@@ -12,17 +12,17 @@ WORKDIR /srv
 
 RUN \
 # Create user
-    addgroup -g 423 -S pkgcollector \
-    && adduser -u 423 -S pkgcollector -G pkgcollector \
+    addgroup -g 423 -S kernelcollector \
+    && adduser -u 423 -S kernelcollector -G kernelcollector \
 # Upgrade system
     && apk update \
     && apk upgrade --no-cache \
     && apk add --no-cache dpkg gnupg gzip fakeroot xz tar \
 # Install Python dependencies
     && pip install --no-cache --upgrade -r requirements.txt \
-    && chown -R pkgcollector:pkgcollector . \
+    && chown -R kernelcollector:kernelcollector . \
 # Cleanup
     && rm -rf /tmp/* /var/cache/apk/*
 
-USER pkgcollector
-ENTRYPOINT ["python", "-m", "pkgcollector.Main"]
+USER kernelcollector
+ENTRYPOINT ["python", "-m", "kernelcollector.Main"]
