@@ -54,19 +54,5 @@ class Main(object):
             json.dump(self.settings, file, sort_keys=True, indent=4, separators=(',', ': '))
 
 if __name__ == '__main__':
-    def get_lock(process_name):
-        get_lock._lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-
-        try:
-            get_lock._lock_socket.bind('\0' + process_name)
-        except socket.error:
-            print('Program is already running!')
-            sys.exit()
-
-    if os.geteuid() != 0:
-        print('Please run this program as root!')
-        sys.exit()
-
-    get_lock('PackageCollector')
     main = Main()
     main.runAllBuilds()

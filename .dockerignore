@@ -1,0 +1,13 @@
+.git
+.github
+
+Dockerfile
+cache.json
+settings.json
+run.sh
+
+logs
+supplementary
+tmp
+
+README.md
