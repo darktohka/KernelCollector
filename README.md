@@ -120,10 +120,12 @@ To run the image straight from Docker Hub, pull the image from there instead.
 docker pull darktohka/kernelcollector:latest
 ```
 
-Next, run the image inside a container. Make sure to mount your GPG directory:
+Next, export your GPG key to a file named `gpg.key`. Use `gpg --export-secret-keys KEY_ID` to accomplish this.
+
+Afterwards, run the image inside a container. Make sure to mount your GPG key:
 
 ```
 chown 423:423 settings.json cache.json
 chown -R 423:423 packages
-docker run -d --name kernelcollector -v "$(pwd)/cache.json:/srv/cache.json" -v "$(pwd)/settings.json:/srv/settings.json" -v "$(pwd)/packages:/srv/packages" -v "$HOME/.gnupg:/home/kernelcollector/.gnupg" kernelcollector
+docker run -d --name kernelcollector -v "$(pwd)/cache.json:/srv/cache.json" -v "$(pwd)/settings.json:/srv/settings.json" -v "$(pwd)/packages:/srv/packages" -v "$(pwd)/gpg.key:/srv/gpg.key" kernelcollector
 ```
