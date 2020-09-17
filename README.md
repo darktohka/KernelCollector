@@ -72,6 +72,7 @@ Next, edit the `settings.json` file to your liking:
 * `gpgKey`: Defaults to `ABCD`. Obviously, this isn't a real GPG key. Repositories maintained by KernelCollector are GPG signed. You will have to create your own GPG key, which can be password protected if needed.
 * `gpgPassword`: Defaults to `none`. If you don't have a GPG password, please set the password to `none`. If you have one, specify it here.
 * `repoPath`: Defaults to `/srv/packages`. This is the filesystem path of your repository, where the artifacts will be published to.
+* `webhook`: Defaukts to `None`. If you have a Discord channel, please consider setting this variable. Package reports are automatically sent to Discord.
 
 You might notice that you need a GPG key to sign the kernel packages. This is out of scope for this tutorial, Google is your friend in this regard, though `gpg --full-generate-key` might be a good point to start.
 

@@ -1,5 +1,5 @@
 import requests
-import time
+import logging, time
 
 HEADERS = {'User-Agent': 'KernelCollector'}
 
@@ -54,7 +54,18 @@ class WebhookEmitter(object):
         return result
 
     def send_all(self):
+        for item in self.queue:
+            logging.info(item)
+
+        for embed in self.embeds:
+            for part in embed.get('embeds', []):
+                for line in part.get('description', '').split('\n'):
+                    logging.info(line)
+
         if not self.webhook:
+            # We don't have a webhook, let's just clear the queue.
+            self.queue = []
+            self.embeds = []
             return
 
         while self.queue:
