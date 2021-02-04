@@ -1,6 +1,6 @@
 name: Autobuild for Docker
 
-on: [push, workflow_dispatch]
+on: [push, workflow_dispatch, repository_dispatch]
 
 jobs:
   build:
