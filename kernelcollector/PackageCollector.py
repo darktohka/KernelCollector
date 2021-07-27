@@ -289,7 +289,7 @@ class PackageCollector(object):
                     f.write('\n'.join(postrmLines))
 
         # Repack the .deb file
-        result = Utils.run_process(['dpkg-deb', '-b', extractFolder, debFilename])
+        result = Utils.run_process(['dpkg-deb', '-Zgzip', '-b', extractFolder, debFilename])
 
         if result.failed:
             self.logger.add(f'Could not pack {os.path.basename(debFilename)} (error code {result.exit_code})!', alert=True)
