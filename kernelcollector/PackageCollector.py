@@ -6,6 +6,7 @@ import requests
 FIND_IMAGE_RM = 'rm -f /lib/modules/$version/.fresh-install'
 NEW_FIND_IMAGE_RM = 'rm -rf /lib/modules/$version'
 INITRD_IMAGE_RMS = ['rm -f /boot/initrd.img-$version', 'rm -f /var/lib/initramfs-tools/$version']
+DEB_CONTENT_TYPE = 'application/x-debian-package'
 
 class PackageCollector(object):
 
@@ -208,8 +209,15 @@ class PackageCollector(object):
             releaseName = '-'.join(names)
 
         # Download the .deb
-        logging.info(f'Downloading package {pkgName} (release v{releaseName})')
-        Utils.downloadFile(link, debFilename)
+        logging.info(f'Downloading package {pkgName} (release v{releaseName}) from {link}')
+
+        try:
+            Utils.downloadFile(link, debFilename, DEB_CONTENT_TYPE)
+        except:
+            self.logger.add(f'Could not download {os.path.basename(debFilename)} from {link}!', alert=True)
+            self.logger.add(traceback.print_exc(), pre=True)
+            self.logger.send_all()
+            return
 
         # Extract the .deb file
         result = Utils.run_process(['dpkg-deb', '-R', debFilename, extractFolder])

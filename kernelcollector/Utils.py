@@ -1,6 +1,9 @@
 import hashlib, subprocess, re
 import requests
 
+class ContentTypeException(Exception):
+    pass
+
 class ProcessOutput(object):
 
     def __init__(self, lines, exit_code):
@@ -43,9 +46,14 @@ def run_process(process):
 def releaseToTuple(name):
     return tuple(int(x) for x in re.split('\\-rc|\\.', name, 0))
 
-def downloadFile(link, destination):
+def downloadFile(link, destination, expected_content_type):
     with requests.get(link, stream=True) as r:
         r.raise_for_status()
+
+        content_type = r.headers.get('content-type', 'unset')
+
+        if content_type != expected_content_type:
+            raise ContentTypeException(f'Expected content type {expected_content_type} but received {content_type}.')
 
         with open(destination, 'wb') as f:
             for chunk in r.iter_content(chunk_size=8192):
