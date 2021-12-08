@@ -18,7 +18,7 @@ RUN \
     && adduser -u 423 -S kernelcollector -G kernelcollector \
 # Upgrade system
     && apk update \
-    && apk add --no-cache --virtual .dev-deps g++ clang autoconf automake make wget bzip2-dev linux-headers perl zlib-dev zstd-dev file patch \
+    && apk add --no-cache --virtual .dev-deps g++ clang autoconf automake gettext make wget bzip2-dev linux-headers perl zlib-dev zstd-dev file patch \
     && apk add --no-cache gnupg gzip fakeroot xz tar zlib bzip2 zstd-libs \
 # Compile dpkg from source (needed for zstd support)
     && cd /tmp \
