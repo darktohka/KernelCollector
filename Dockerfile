@@ -22,9 +22,9 @@ RUN \
     && apk add --no-cache gnupg gzip fakeroot xz tar zlib bzip2 zstd-libs \
 # Compile dpkg from source (needed for zstd support)
     && cd /tmp \
-    && wget https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/dpkg/1.20.9ubuntu2/dpkg_1.20.9ubuntu2.tar.xz \
-    && tar -xvf *.tar.xz \
-    && rm -rf *.tar.xz \
+    && wget https://salsa.debian.org/dpkg-team/dpkg/-/archive/1.21.1/dpkg-1.21.1.tar.gz \
+    && tar -xzf *.tar.gz \
+    && rm -rf *.tar.gz \
     && cd dpkg-* \
     && ./configure --prefix=/usr \
          --sysconfdir=/etc \
