@@ -26,6 +26,7 @@ RUN \
     && tar -xzf *.tar.gz \
     && rm -rf *.tar.gz \
     && cd dpkg-* \
+    && autoreconf -i \
     && ./configure --prefix=/usr \
          --sysconfdir=/etc \
          --mandir=/tmp \
