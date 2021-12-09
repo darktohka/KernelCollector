@@ -18,13 +18,13 @@ RUN \
     && adduser -u 423 -S kernelcollector -G kernelcollector \
 # Upgrade system
     && apk update \
-    && apk add --no-cache --virtual .dev-deps g++ clang autoconf automake gettext git make wget bzip2-dev linux-headers perl zlib-dev zstd-dev file patch \
+    && apk add --no-cache --virtual .dev-deps g++ clang autoconf automake make wget bzip2-dev linux-headers perl zlib-dev zstd-dev file patch \
     && apk add --no-cache gnupg gzip fakeroot xz tar zlib bzip2 zstd-libs \
 # Compile dpkg from source (needed for zstd support)
     && cd /tmp \
-    && wget https://salsa.debian.org/dpkg-team/dpkg/-/archive/1.21.1/dpkg-1.21.1.tar.gz \
-    && tar -xzf *.tar.gz \
-    && rm -rf *.tar.gz \
+    && wget https://launchpad.net/debian/+archive/primary/+sourcefiles/dpkg/1.21.1/dpkg_1.21.1.tar.xz \
+    && tar -xf *.tar.xz \
+    && rm -rf *.tar.xz \
     && cd dpkg-* \
     && autoreconf -i \
     && ./configure --prefix=/usr \
