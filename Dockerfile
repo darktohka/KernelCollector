@@ -22,7 +22,7 @@ RUN \
     && apk add --no-cache gnupg gzip fakeroot xz tar zlib bzip2 zstd-libs \
 # Compile dpkg from source (needed for zstd support)
     && cd /tmp \
-    && wget https://launchpad.net/debian/+archive/primary/+sourcefiles/dpkg/1.21.1/dpkg_1.21.1.tar.xz \
+    && wget http://archive.ubuntu.com/ubuntu/pool/main/d/dpkg/dpkg_1.20.9ubuntu3.tar.xz \
     && tar -xf *.tar.xz \
     && rm -rf *.tar.xz \
     && cd dpkg-* \
