@@ -22,7 +22,10 @@ RUN \
     && apk add --no-cache gnupg gzip fakeroot xz tar zlib bzip2 zstd-libs \
 # Compile dpkg from source (needed for zstd support)
     && cd /tmp \
-    && wget http://archive.ubuntu.com/ubuntu/pool/main/d/dpkg/dpkg_1.21.1ubuntu1.tar.xz \
+# Find latest version of dpkg
+    && DPKG_URL="http://archive.ubuntu.com/ubuntu/pool/main/d/dpkg" \
+    && DPKG_VERSION=$(wget -q -O - "$DPKG_URL/?C=M;O=D" | grep -Poh -m 1 "(?<=")dpkg_.+\.tar\.xz(?=\")") \
+    && wget "$DPKG_URL/$DPKG_VERSION" \
     && tar -xf *.tar.xz \
     && rm -rf *.tar.xz \
     && cd dpkg-* \
