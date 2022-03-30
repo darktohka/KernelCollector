@@ -251,6 +251,9 @@ class PackageCollector(object):
             elif line.startswith('Depends: '):
                 dependencies = [dep for dep in line[len('Depends: '):].split(', ') if not dep.startswith('linux-')]
 
+                # libssl3 and newer libc6 is not available on Debian.
+                dependencies = [dep for dep in dependencies if not dep.startswith('libc6') and not dep.startswith('libssl3')]
+
                 # initramfs depends on the logsave script, which is not installed by default.
                 # Without the logsave script, the system will not boot.
                 if 'image' in pkgName:
