@@ -24,8 +24,8 @@ This kind of setup might not be useful (or too risky) for some people, in that c
 Users will simply have to install the official `https://deb.tohka.us` Debian package repository, by dropping the package list into `/etc/apt/sources.list.d` (or straight into `/etc/apt/sources.list`, if you'd like), and then importing the GPG key that the Linux kernel packages are signed with.
 
 ```
-echo "deb https://deb.tohka.us sid main" | sudo tee /etc/apt/sources.list.d/tohka.list
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E4012B02CD659038
+echo "deb [signed-by=/usr/share/keyrings/kernelcollector-archive-keyring.gpg] https://deb.tohka.us sid main" | sudo tee /etc/apt/sources.list.d/tohka.list
+sudo gpg --no-default-keyring --keyring /usr/share/keyrings/kernelcollector-archive-keyring.gpg --keyserver keyserver.ubuntu.com --recv-keys E4012B02CD659038
 sudo apt update
 ```
 
