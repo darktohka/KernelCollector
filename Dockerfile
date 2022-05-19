@@ -17,7 +17,7 @@ RUN \
     && adduser -u 423 -S kernelcollector -G kernelcollector \
 # Upgrade system
     && apk update \
-    && apk add --no-cache --virtual .dev-deps g++ clang autoconf automake make wget bzip2-dev linux-headers perl zlib-dev zstd-dev file patch grep \
+    && apk add --no-cache --virtual .dev-deps g++ clang autoconf gettext-tiny libtool automake make wget bzip2-dev linux-headers perl zlib-dev zstd-dev file patch grep \
     && apk add --no-cache gnupg gzip fakeroot xz tar zlib bzip2 zstd-libs \
 # Compile dpkg from source (needed for zstd support)
     && cd /tmp \
@@ -28,9 +28,9 @@ RUN \
     && tar -xf *.tar.xz \
     && rm -rf *.tar.xz \
     && cd dpkg-* \
+    && if ! [[ -f configure ]]; then ./autogen; fi \
     && ./configure --prefix=/usr \
          --sysconfdir=/etc \
-         --mandir=/tmp \
          --localstatedir=/tmp \
          --with-libz \
          --with-libbz2 \
@@ -39,6 +39,7 @@ RUN \
          --disable-start-stop-daemon \
          --disable-nls \
          --disable-static \
+         --disable-devel-docs \
     && make -j$(nproc) \
     && make install \
     && cd /srv \

@@ -172,23 +172,30 @@ class PackageCollector(object):
                 if f'-{type}-' not in text:
                     continue
 
-                for subType in ('generic', 'lowlatency', 'snapdragon'):
-                    if f'-{subType}' in text:
-                        files[f'{releaseType}-{type}-{subType}-{arch}'] = text
-                        foundCurrent = True
-                        break
+                for subType in ('lpae', 'lowlatency', 'snapdragon', 'generic'):
+                    if not f'-{subType}' in text:
+                        continue
+
+                    fileType = f'{releaseType}-{type}-{subType}-{arch}'
+
+                    if fileType in files:
+                        files[fileType].append(text)
+                    else:
+                        files[fileType] = [text]
+
+                    foundCurrent = True
+                    break
 
             if (not foundCurrent) and '-headers-' in text:
-                files[f'{releaseType}-headers-all'] = text
+                files[f'{releaseType}-headers-all'] = [text]
 
         return files
 
-    def downloadAndRepack(self, releaseLink, releaseName, releaseType, pkgName, filename):
+    def downloadAndRepack(self, releaseLink, releaseName, releaseType, pkgName, filenames):
         debFilename = os.path.join(self.tmpDir, pkgName + '.deb')
         extractFolder = os.path.join(self.tmpDir, uuid.uuid4().hex)
         controlFilename = os.path.join(extractFolder, 'DEBIAN', 'control')
         postrmFilename = os.path.join(extractFolder, 'DEBIAN', 'postrm')
-        link = f'https://kernel.ubuntu.com/~kernel-ppa/mainline/{releaseLink}/{filename}'
 
         # Create a temporary folder for the repackaging
         if os.path.exists(extractFolder):
@@ -201,34 +208,63 @@ class PackageCollector(object):
             names = releaseName.split('-')
             release = list(Utils.releaseToTuple(names[0]))
 
-            if len(release) < 3:
-                while len(release) < 3:
-                    release.append(0)
+            while len(release) < 3:
+                release.append(0)
 
             names[0] = '.'.join([str(num) for num in release])
             releaseName = '-'.join(names)
 
-        # Download the .deb
-        logging.info(f'Downloading package {pkgName} (release v{releaseName}) from {link}')
+        for i, filename in enumerate(filenames):
+            primaryFile = i == 0
+            link = f'https://kernel.ubuntu.com/~kernel-ppa/mainline/{releaseLink}/{filename}'
 
-        try:
-            Utils.downloadFile(link, debFilename, DEB_CONTENT_TYPE)
-        except:
-            self.logger.add(f'Could not download {os.path.basename(debFilename)} from {link}!', alert=True)
-            self.logger.add(traceback.print_exc(), pre=True)
-            self.logger.send_all()
-            return
+            # Download the .deb
+            logging.info(f'Downloading package {pkgName} (release v{releaseName}) from {link}')
 
-        # Extract the .deb file
-        result = Utils.run_process(['dpkg-deb', '-R', debFilename, extractFolder])
+            try:
+                Utils.downloadFile(link, debFilename, DEB_CONTENT_TYPE)
+            except:
+                self.logger.add(f'Could not download {os.path.basename(debFilename)} from {link}!', alert=True)
+                self.logger.add(traceback.print_exc(), pre=True)
+                self.logger.send_all()
+                return
 
-        if result.failed:
-            self.logger.add(f'Could not extract {os.path.basename(debFilename)} (error code {result.exit_code})!', alert=True)
-            self.logger.add(result.get_output(), pre=True)
-            self.logger.send_all()
-            return
+            # Extract the .deb file
+            extractFlag = '-R' if primaryFile else '-x'
+            result = Utils.run_process(['dpkg-deb', extractFlag, debFilename, extractFolder])
 
-        os.remove(debFilename)
+            if result.failed:
+                self.logger.add(f'Could not extract {os.path.basename(debFilename)} (error code {result.exit_code})!', alert=True)
+                self.logger.add(result.get_output(), pre=True)
+                self.logger.send_all()
+                return
+
+            if not primaryFile:
+                # Auxiliary packages: unpack metadata into a secondary folder
+                secondaryExtractFolder = os.path.join(self.tmpDir, uuid.uuid4().hex)
+
+                if os.path.exists(secondaryExtractFolder):
+                    shutil.rmtree(secondaryExtractFolder)
+
+                os.makedirs(secondaryExtractFolder)
+                result = Utils.run_process(['dpkg-deb', '-e', debFilename, secondaryExtractFolder])
+
+                if result.failed:
+                    self.logger.add(f'Could not extract metadata {os.path.basename(debFilename)} (error code {result.exit_code})!', alert=True)
+                    self.logger.add(result.get_output(), pre=True)
+                    self.logger.send_all()
+                    return
+
+                # Merge md5sum metadata
+                with open(os.path.join(extractFolder, 'DEBIAN', 'md5sums'), 'a+') as targetHashFile:
+                    with open(os.path.join(secondaryExtractFolder, 'md5sums'), 'r') as sourceHashFile:
+                        targetHashFile.write(sourceHashFile.read())
+
+                # Remove secondary folder
+                if os.path.exists(secondaryExtractFolder):
+                    shutil.rmtree(secondaryExtractFolder)
+
+            os.remove(debFilename)
 
         if not os.path.exists(controlFilename):
             self.logger.add(f'No control file for {pkgName}...', alert=True)
@@ -333,15 +369,15 @@ class PackageCollector(object):
         downloaded = False
 
         # Go through all files
-        for pkgName, filename in files.items():
+        for pkgName, filenames in files.items():
             # Check our cache
-            if self.fileCache.get(pkgName, None) == filename:
+            if self.fileCache.get(pkgName, None) == filenames:
                 logging.info(f'Skipping package {pkgName}.')
                 continue
 
             # Download and repack
-            self.downloadAndRepack(releaseLink, releaseName, releaseType, pkgName, filename)
-            self.fileCache[pkgName] = filename
+            self.downloadAndRepack(releaseLink, releaseName, releaseType, pkgName, filenames)
+            self.fileCache[pkgName] = filenames
             downloaded = True
 
         # Update cache
