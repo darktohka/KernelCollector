@@ -28,7 +28,8 @@ RUN \
     && tar -xf *.tar.xz \
     && rm -rf *.tar.xz \
     && cd dpkg-* \
-    && if ! [[ -f configure ]]; then ./autogen; fi \
+    && if [[ -f configure ]]; then rm configure; fi \
+    && ./autogen \
     && chmod +x configure \
     && ./configure --prefix=/usr \
          --sysconfdir=/etc \
