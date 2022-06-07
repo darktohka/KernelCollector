@@ -29,6 +29,7 @@ RUN \
     && rm -rf *.tar.xz \
     && cd dpkg-* \
     && if ! [[ -f configure ]]; then ./autogen; fi \
+    && chmod +x configure \
     && ./configure --prefix=/usr \
          --sysconfdir=/etc \
          --localstatedir=/tmp \
