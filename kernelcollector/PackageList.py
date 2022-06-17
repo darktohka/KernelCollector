@@ -58,7 +58,8 @@ class PackageList(object):
         if os.path.exists(poolFilename):
             os.remove(poolFilename)
 
-        shutil.move(filename, poolFilename)
+        shutil.copyfile(filename, poolFilename)
+        os.remove(filename)
         self.recentlyAdded[basename] = None # Version to be filled out in getAllReleasesInPool
 
     def saveAllDistributions(self, letters):
