@@ -17,8 +17,8 @@ RUN \
     && adduser -u 423 -S kernelcollector -G kernelcollector \
 # Upgrade system
     && apk update \
-    && apk add --no-cache --virtual .dev-deps g++ clang autoconf gettext-tiny libtool automake make wget bzip2-dev linux-headers perl zlib-dev zstd-dev file patch grep \
-    && apk add --no-cache gnupg gzip fakeroot xz tar zlib bzip2 zstd-libs \
+    && apk add --no-cache --virtual .dev-deps g++ clang autoconf gettext-tiny libtool automake make wget bzip2-dev libmd-dev linux-headers perl zlib-dev zstd-dev file patch grep \
+    && apk add --no-cache gnupg gzip fakeroot xz tar zlib bzip2 zstd-libs libmd \
 # Compile dpkg from source (needed for zstd support)
     && cd /tmp \
 # Find latest version of dpkg
