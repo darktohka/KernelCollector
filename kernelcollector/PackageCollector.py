@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 from . import Utils
-import json, logging, tempfile, shutil, os, time, uuid
+import json, logging, tempfile, shutil, os, time, uuid, multiprocessing
 import requests
 
 FIND_IMAGE_RM = 'rm -f /lib/modules/$version/.fresh-install'
@@ -40,25 +40,42 @@ class PackageCollector(object):
         logging.info(f'Current release candidate: {prerelease}')
         logging.info(f'Current daily build: v{dailyRelease}')
 
-        # Create the temporary folder
+        # Delete the temporary folder
         if os.path.exists(self.tmpDir):
             shutil.rmtree(self.tmpDir)
 
-        os.makedirs(self.tmpDir)
-
         # Redownload stable build if necessary
-        if self.downloadAndRepackAll(release, release[1:], 'linux-current'):
-            downloaded = True
+        downloadable = []
+        downloadable.extend(self.findDownloadableFiles(release, release[1:], 'linux-current'))
 
         # Redownload beta (release candidate) build if necessary
-        if self.downloadAndRepackAll(prerelease, prerelease[1:], 'linux-beta'):
-            downloaded = True
+        downloadable.extend(self.findDownloadableFiles(prerelease, prerelease[1:], 'linux-beta'))
 
         # Redownload devel build if necessary
-        if self.downloadAndRepackAll(f'daily/{dailyRelease}', dailyRelease, 'linux-devel'):
-            downloaded = True
+        downloadable.extend(self.findDownloadableFiles(f'daily/{dailyRelease}', dailyRelease, 'linux-devel'))
 
         # Update cache and publish repository
+        if not downloadable:
+            return
+
+        # Create the temporary folder
+        os.makedirs(self.tmpDir)
+
+        # Schedule pool
+        downloadable_queue = self.splitList(downloadable, multiprocessing.cpu_count())
+        downloadable_queue = [q for q in downloadable_queue if q]
+        worker_count = len(downloadable_queue)
+
+        # Create and run the pool
+        pool = multiprocessing.Pool(processes=worker_count)
+        file_caches = pool.map(self.downloadFilesWorker, list(enumerate(downloadable_queue)))
+        downloaded = any(file_caches)
+
+        # Update the global file cache from the multiprocessing pool
+        for file_cache in file_caches:
+            self.fileCache.update(file_cache)
+
+        # Update the cache if necessary
         if downloaded:
             self.updateCache()
             self.publishRepository()
@@ -66,6 +83,10 @@ class PackageCollector(object):
         # Remove temporary folder
         if os.path.exists(self.tmpDir):
             shutil.rmtree(self.tmpDir)
+
+    def splitList(self, a, n):
+        k, m = divmod(len(a), n)
+        return (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
 
     def getAllReleases(self):
         # We use the Ubuntu kernel mainline as the build source.
@@ -342,7 +363,22 @@ class PackageCollector(object):
         if os.path.exists(extractFolder):
             shutil.rmtree(extractFolder)
 
-    def downloadAndRepackAll(self, releaseLink, releaseName, releaseType):
+    def downloadFilesWorker(self, worker_args):
+        i, files = worker_args
+
+        logging.info(f'Starting worker number {i + 1} with {len(files)} to download...')
+        file_cache = {}
+
+        # Go through all files
+        for releaseLink, releaseName, releaseType, pkgName, filenames in files:
+            # Download and repack
+            self.downloadAndRepack(releaseLink, releaseName, releaseType, pkgName, filenames)
+            file_cache[pkgName] = filenames
+
+        logging.info(f'Worker number {i + 1} has finished.')
+        return file_cache
+
+    def findDownloadableFiles(self, releaseLink, releaseName, releaseType):
         # Download the file list for this release
         logging.info(f'Downloading release: {releaseType}')
 
@@ -364,27 +400,19 @@ class PackageCollector(object):
         if len(currentTypes) != len(requiredTypes):
             self.logger.add(f'Release is not yet ready: {releaseType}')
             self.logger.send_all()
-            return False
+            return []
 
-        downloaded = False
+        filtered_files = []
 
-        # Go through all files
         for pkgName, filenames in files.items():
             # Check our cache
             if self.fileCache.get(pkgName, None) == filenames:
                 logging.info(f'Skipping package {pkgName}.')
                 continue
 
-            # Download and repack
-            self.downloadAndRepack(releaseLink, releaseName, releaseType, pkgName, filenames)
-            self.fileCache[pkgName] = filenames
-            downloaded = True
+            filtered_files.append([releaseLink, releaseName, releaseType, pkgName, filenames])
 
-        # Update cache
-        if downloaded:
-            self.updateCache()
-
-        return downloaded
+        return filtered_files
 
     def reloadCache(self):
         # Reload the cache.
