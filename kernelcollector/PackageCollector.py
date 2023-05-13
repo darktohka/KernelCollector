@@ -1,12 +1,13 @@
 from bs4 import BeautifulSoup
 from . import Utils
-import json, logging, tempfile, shutil, os, time, uuid, multiprocessing
+import json, logging, tempfile, re, shutil, os, time, uuid, multiprocessing
 import requests
 
 FIND_IMAGE_RM = 'rm -f /lib/modules/$version/.fresh-install'
 NEW_FIND_IMAGE_RM = 'rm -rf /lib/modules/$version'
 INITRD_IMAGE_RMS = ['rm -f /boot/initrd.img-$version', 'rm -f /var/lib/initramfs-tools/$version']
 DEB_CONTENT_TYPE = 'application/x-debian-package'
+DAILY_RELEASE_REGEX = re.compile(r'\d{4}-\d{2}-\d{2}')
 
 class PackageCollector(object):
 
@@ -24,35 +25,29 @@ class PackageCollector(object):
         logging.info('Checking latest versions of the kernel...')
         releases, prereleases = self.getAllReleases()
 
-        # The newest release is always the last in the list
-        release = releases[-1]
-        prerelease = prereleases[-1]
-
         # At the end of every release candidate cycle, a new kernel version is released.
         # Upgrade the prerelease branch if there is no newer prerelease than the current release.
-        if Utils.releaseToTuple(release[1:])[0:2] >= Utils.releaseToTuple(prerelease[1:])[0:2]:
-            prerelease = release
+        if Utils.releaseToTuple(releases[-1][1:])[0:2] >= Utils.releaseToTuple(prereleases[-1][1:])[0:2]:
+            prereleases.append(releases[-1])
 
-        dailyRelease = self.getNewestDailyRelease()
+        dailyReleases = self.getDailyReleases()
         downloaded = False
-
-        logging.info(f'Current release: {release}')
-        logging.info(f'Current release candidate: {prerelease}')
-        logging.info(f'Current daily build: v{dailyRelease}')
 
         # Delete the temporary folder
         if os.path.exists(self.tmpDir):
             shutil.rmtree(self.tmpDir)
 
         # Redownload stable build if necessary
-        downloadable = []
-        downloadable.extend(self.findDownloadableFiles(release, release[1:], 'linux-current'))
+        release, downloadable_release = self.findDownloadableFiles(releases, 'linux-current')
+        prerelease, downloadable_prerelease = self.findDownloadableFiles(prereleases, 'linux-beta')
+        dailyRelease, downloadable_daily_release = self.findDownloadableFiles(dailyReleases, 'linux-devel')
 
-        # Redownload beta (release candidate) build if necessary
-        downloadable.extend(self.findDownloadableFiles(prerelease, prerelease[1:], 'linux-beta'))
+        downloadable = downloadable_release + downloadable_prerelease + downloadable_daily_release
 
-        # Redownload devel build if necessary
-        downloadable.extend(self.findDownloadableFiles(f'daily/{dailyRelease}', dailyRelease, 'linux-devel'))
+        logging.info(f'Current release: {release}')
+        logging.info(f'Current release candidate: {prerelease}')
+        logging.info(f'Current daily build: {dailyRelease}')
+        self.logger.send_all()
 
         # Update cache and publish repository
         if not downloadable:
@@ -125,12 +120,12 @@ class PackageCollector(object):
                 releases.append(name)
 
         # Sort the releases in descending order
-        prereleases.sort(key=lambda x: Utils.releaseToTuple(x[1:]))
-        releases.sort(key=lambda x: Utils.releaseToTuple(x[1:]))
+        prereleases.sort(key=lambda x: Utils.releaseToTuple(x[1:]), reverse=True)
+        releases.sort(key=lambda x: Utils.releaseToTuple(x[1:]), reverse=True)
 
         return releases, prereleases
 
-    def getNewestDailyRelease(self):
+    def getDailyReleases(self):
         # We have to find the newest daily release version
         with requests.get('https://kernel.ubuntu.com/~kernel-ppa/mainline/daily') as site:
             data = site.content
@@ -153,8 +148,7 @@ class PackageCollector(object):
                 if version != 'current':
                     versions.append(version)
 
-        if versions:
-            return max(versions)
+        return sorted(versions, reverse=True)
 
     def getFiles(self, releaseLink, releaseType):
         with requests.get(f'https://kernel.ubuntu.com/~kernel-ppa/mainline/{releaseLink}') as site:
@@ -366,7 +360,7 @@ class PackageCollector(object):
     def downloadFilesWorker(self, worker_args):
         i, files = worker_args
 
-        logging.info(f'Starting worker number {i + 1} with {len(files)} to download...')
+        logging.info(f'Starting worker number {i + 1} with {len(files)} packages to download...')
         file_cache = {}
 
         # Go through all files
@@ -378,41 +372,48 @@ class PackageCollector(object):
         logging.info(f'Worker number {i + 1} has finished.')
         return file_cache
 
-    def findDownloadableFiles(self, releaseLink, releaseName, releaseType):
+    def findDownloadableFiles(self, releases, releaseType):
         # Download the file list for this release
-        logging.info(f'Downloading release: {releaseType}')
-
-        files = self.getFiles(releaseLink, releaseType)
         requiredTypes = ['image', 'modules', 'headers']
-        currentTypes = []
 
-        for pkgName in files.keys():
-            type = pkgName.split('-')
+        for release in releases:
+            if DAILY_RELEASE_REGEX.match(release):
+                releaseLink = f'daily/{release}'
+                releaseName = release
+            else:
+                releaseLink = release
+                releaseName = release[:1]
 
-            if len(type) < 3:
-                continue
+            files = self.getFiles(releaseLink, releaseType)
+            currentTypes = []
 
-            type = type[2]
+            for pkgName in files.keys():
+                type = pkgName.split('-')
 
-            if type in requiredTypes and type not in currentTypes:
-                currentTypes.append(type)
+                if len(type) < 3:
+                    continue
 
-        if len(currentTypes) != len(requiredTypes):
+                type = type[2]
+
+                if type in requiredTypes and type not in currentTypes:
+                    currentTypes.append(type)
+
+            if len(currentTypes) == len(requiredTypes):
+                # Found all files necessary
+                break
+
             self.logger.add(f'Release is not yet ready: {releaseType}')
-            self.logger.send_all()
-            return []
 
         filtered_files = []
 
         for pkgName, filenames in files.items():
             # Check our cache
             if self.fileCache.get(pkgName, None) == filenames:
-                logging.info(f'Skipping package {pkgName}.')
                 continue
 
             filtered_files.append([releaseLink, releaseName, releaseType, pkgName, filenames])
 
-        return filtered_files
+        return release, filtered_files
 
     def reloadCache(self):
         # Reload the cache.
