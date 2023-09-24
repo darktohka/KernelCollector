@@ -1,7 +1,7 @@
-from .PackageCollector import PackageCollector
-from .PackageList import PackageList
-from .PackageDistribution import PackageDistribution
-from .WebhookEmitter import WebhookEmitter
+from .package_collector import PackageCollector
+from .package_list import PackageList
+from .package_distribution import PackageDistribution
+from .webhook import WebhookEmitter
 import traceback, json, logging, os, sys
 
 class Main(object):
@@ -11,39 +11,39 @@ class Main(object):
             with open('settings.json', 'r') as file:
                 self.settings = json.load(file)
 
-        defaultValues = {'repoPath': '/srv/packages', 'gpgKey': 'ABCDEF', 'gpgPassword': 'none', 'distribution': 'sid', 'description': 'Package repository for newest Linux kernels', 'architectures': ['amd64'], 'webhook': None}
+        default_values = {'repoPath': '/srv/packages', 'gpgKey': 'ABCDEF', 'gpgPassword': 'none', 'distribution': 'sid', 'description': 'Package repository for newest Linux kernels', 'architectures': ['amd64'], 'webhook': None}
         edited = False
 
-        for key, value in defaultValues.items():
+        for key, value in default_values.items():
             if key not in self.settings:
                 self.settings[key] = value
                 edited = True
 
         if edited:
             print('Please edit the settings.json file before running the package collector!')
-            self.saveSettings()
+            self.save_settings()
             sys.exit()
 
         self.logger = WebhookEmitter(self.settings['webhook'])
 
-        self.packageList = PackageList(self.logger, self.settings['repoPath'].rstrip('/'), self.settings['gpgKey'], self.settings['gpgPassword'])
-        self.packageDist = PackageDistribution(self.logger, self.settings['distribution'], self.settings['architectures'], self.settings['description'])
-        self.packageList.addDistribution(self.packageDist)
+        self.package_list = PackageList(self.logger, self.settings['repoPath'].rstrip('/'), self.settings['gpgKey'], self.settings['gpgPassword'])
+        self.package_dist = PackageDistribution(self.logger, self.settings['distribution'], self.settings['architectures'], self.settings['description'])
+        self.package_list.add_distribution(self.package_dist)
 
-        self.packageCollector = PackageCollector(self.logger, self.settings['architectures'], self.packageList)
+        self.package_collector = PackageCollector(self.logger, self.settings['architectures'], self.package_list)
 
-    def runAllBuilds(self):
+    def run_all_builds(self):
         # Attempt to run all builds.
         # If something goes wrong, a webhook message will be sent.
 
         try:
-            self.packageCollector.runAllBuilds()
+            self.package_collector.run_all_builds()
         except:
             self.logger.add('Something went wrong while building packages!', alert=True)
             self.logger.add(traceback.format_exc(), pre=True)
             self.logger.send_all()
 
-    def saveSettings(self):
+    def save_settings(self):
         with open('settings.json', 'w') as file:
             json.dump(self.settings, file, sort_keys=True, indent=4, separators=(',', ': '))
 
@@ -52,4 +52,4 @@ if __name__ == '__main__':
     logging.root.setLevel(logging.INFO)
 
     main = Main()
-    main.runAllBuilds()
+    main.run_all_builds()

@@ -1,5 +1,5 @@
-import requests
 import logging, time
+import requests
 
 HEADERS = {'User-Agent': 'KernelCollector'}
 

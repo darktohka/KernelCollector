@@ -4,4 +4,4 @@
 gpg --import gpg.key
 
 # Run the actual program
-python -m kernelcollector.Main
+python -m kernelcollector.main
