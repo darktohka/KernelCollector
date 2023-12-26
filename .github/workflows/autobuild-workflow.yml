@@ -4,23 +4,17 @@ on: [push, workflow_dispatch, repository_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm,arm64
-      - name: Install builder plugin
-        id: buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          version: latest
-      - name: Login to Docker
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      - name: Login to the registry
+        run: registry-login "${{ secrets.DOCKER_USERNAME }}" "${{ secrets.DOCKER_PASSWORD }}"
       - name: Build the image
         run: |
-          docker buildx build --push \
-            --tag "${{secrets.DOCKER_TAG}}" \
-            --platform linux/amd64,linux/arm/v7,linux/arm64 .
+          buildctl build \
+            --frontend dockerfile.v0 \
+            --local context=. \
+            --local dockerfile=. \
+            --opt platform=linux/amd64 \
+            --output type=image,name="${{ secrets.DOCKER_TAG }}",push=true,store=false
