@@ -107,6 +107,12 @@ class PackageCollector(object):
         stable_version = stable_entry.find('strong').text
         stable_download_link = stable_entry.find('a', {'title': 'Download complete tarball'})['href']
 
+        stable_version_tuple = utils.release_to_tuple(stable_version)[0:2]
+        mainline_version_tuple = utils.release_to_tuple(mainline_version)[0:2]
+
+        if stable_version_tuple < mainline_version_tuple and '-rc' not in mainline_version:
+            return mainline_version, mainline_download_link, mainline_version, mainline_download_link
+
         return stable_version, stable_download_link, mainline_version, mainline_download_link
 
     def get_ubuntu_releases(self):
