@@ -16,5 +16,5 @@ jobs:
             --frontend dockerfile.v0 \
             --local context=. \
             --local dockerfile=. \
-            --opt platform=linux/amd64 \
+            --opt platform=linux/arm64 \
             --output type=image,name="${{ secrets.DOCKER_TAG }}",push=true,store=false
