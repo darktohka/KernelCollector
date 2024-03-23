@@ -118,7 +118,7 @@ class PackageCollector(object):
     def get_ubuntu_releases(self):
         # We use the Ubuntu kernel mainline as the build source.
         # This method will return a list of releases and prereleases, sorted in ascending order.
-        with requests.get('https://kernel.ubuntu.com/~kernel-ppa/mainline') as site:
+        with requests.get('https://kernel.ubuntu.com/mainline') as site:
             data = site.content
 
         soup = BeautifulSoup(data, 'html.parser')
@@ -164,7 +164,7 @@ class PackageCollector(object):
 
     def get_daily_releases(self):
         # We have to find the newest daily release version
-        with requests.get('https://kernel.ubuntu.com/~kernel-ppa/mainline/daily') as site:
+        with requests.get('https://kernel.ubuntu.com/mainline/daily') as site:
             data = site.content
 
         soup = BeautifulSoup(data, 'html.parser')
@@ -188,7 +188,7 @@ class PackageCollector(object):
         return sorted(versions, reverse=True)
 
     def get_files(self, release_link, release_type):
-        with requests.get(f'https://kernel.ubuntu.com/~kernel-ppa/mainline/{release_link}') as site:
+        with requests.get(f'https://kernel.ubuntu.com/mainline/{release_link}') as site:
             data = site.content
 
         files = {}
@@ -295,7 +295,7 @@ class PackageCollector(object):
 
         for i, filename in enumerate(filenames):
             primary_file = i == 0
-            link = f'https://kernel.ubuntu.com/~kernel-ppa/mainline/{release_link}/{filename}'
+            link = f'https://kernel.ubuntu.com/mainline/{release_link}/{filename}'
 
             # Download the .deb
             logging.info(f'Downloading package {pkg_name} (release v{release_name}) from {link}')
