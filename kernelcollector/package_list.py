@@ -1,5 +1,5 @@
 from deb_pkg_tools.package import inspect_package_fields
-from distutils.version import LooseVersion
+from looseversion import LooseVersion
 from . import utils
 import shutil, logging, time, os
 
